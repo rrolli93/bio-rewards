@@ -55,17 +55,20 @@ lookup) are injected as *providers*, each with a mock fallback. The reward logic
 stays pure and testable offline, and every demo runs at a venue with no GPU and
 no network.
 
-## The four verifiers
+## The five verifiers
 
 | Domain | Artifact `x` | Deterministic ground truth |
 |---|---|---|
-| **protocol** | PCR primer pair, CRISPR guide, cloning junction | nearest-neighbor Tm, GC, PAM, self-complementarity |
-| **binder** | designed protein / peptide sequence | fold self-consistency (RMSD, pLDDT, ipSAE) + developability gates |
+| **protocol** | PCR primer pair, CRISPR guide | nearest-neighbor Tm, GC, PAM, self-complementarity |
+| **binder** | designed protein / peptide (+ target) | developability gates + fold confidence (pLDDT, ipTM, ipSAE, pae_interaction) |
 | **metabolic** | gene knockout / insertion set | flux balance analysis (a linear program) |
 | **citation** | a factual scientific claim | DOI resolves, numbers match source, entity type correct |
+| **smallmolecule** | a SMILES string | drug-likeness, synthetic accessibility, docking; PAINS hard gate |
 
-`protocol` is implemented and fully offline. The other three ship next, each as
-a subclass of the same `RewardFunction`.
+All five are implemented, each a subclass of the same `RewardFunction`. Every
+verifier runs offline through a mock provider; real providers (boltz-api /
+LiteFold folding, cobra FBA, live Crossref+RCSB, Rowan/Vina docking) plug in
+without touching the scorer.
 
 ## Quick start
 

@@ -298,11 +298,17 @@ class LiteFoldFoldProvider:
         requests.post(f"{self.base}/structure/submit", headers=h, timeout=120,
                       json={"job_name": job, "file_names": ["seqs.fasta"]})
 
-        # poll until every file is done
+        # poll until every file is done. Transient network hiccups (the hosted
+        # status endpoint occasionally read-times-out) are tolerated: sleep and
+        # retry rather than crash the whole fold.
         deadline = time.time() + self.timeout
         while time.time() < deadline:
-            st = requests.get(f"{self.base}/structure/jobs/{job}/status",
-                              headers=h, timeout=60).json()
+            try:
+                st = requests.get(f"{self.base}/structure/jobs/{job}/status",
+                                  headers=h, timeout=120).json()
+            except requests.RequestException:
+                time.sleep(self.poll_interval)
+                continue
             total = st.get("total_files", 0)
             if total and (st.get("completed", 0) + st.get("failed", 0)) >= total:
                 break

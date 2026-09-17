@@ -10,6 +10,7 @@ dependencies = []
 # per-verifier heavy deps stay optional so the core installs anywhere
 fba = ["cobra>=0.29"]
 citation = ["requests>=2.31"]
+smallmolecule = ["rdkit>=2023"]
 dev = ["pytest>=8"]
 
 [build-system]
