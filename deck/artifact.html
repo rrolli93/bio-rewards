@@ -1,0 +1,418 @@
+<title>Verifiable Rewards for Biology</title>
+<style>
+  :root {
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+    --ground: #0B0F17;
+    --surface: #131A26;
+    --surface-2: #182130;
+    --border: #24304a;
+    --text: #E6EAF2;
+    --muted: #8593ab;
+    --faint: #5b6884;
+    --accent: #F2B705;        /* the reward. the one bold thing. */
+    --accent-soft: rgba(242,183,5,0.14);
+    --pass: #35B27A;
+    --reject: #E1584C;
+    --shadow: rgba(0,0,0,0.4);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #FBFBFD;
+      --surface: #FFFFFF;
+      --surface-2: #F3F5F9;
+      --border: #E2E6EE;
+      --text: #10151F;
+      --muted: #566074;
+      --faint: #93a0b5;
+      --accent: #9A6B00;
+      --accent-soft: rgba(154,107,0,0.10);
+      --pass: #1f8a58;
+      --reject: #c23b30;
+      --shadow: rgba(20,30,50,0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0B0F17; --surface:#131A26; --surface-2:#182130; --border:#24304a;
+    --text:#E6EAF2; --muted:#8593ab; --faint:#5b6884; --accent:#F2B705;
+    --accent-soft:rgba(242,183,5,0.14); --pass:#35B27A; --reject:#E1584C; --shadow:rgba(0,0,0,0.4);
+  }
+  :root[data-theme="light"] {
+    --ground:#FBFBFD; --surface:#FFFFFF; --surface-2:#F3F5F9; --border:#E2E6EE;
+    --text:#10151F; --muted:#566074; --faint:#93a0b5; --accent:#9A6B00;
+    --accent-soft:rgba(154,107,0,0.10); --pass:#1f8a58; --reject:#c23b30; --shadow:rgba(20,30,50,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ground);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    line-height: 1.5;
+  }
+
+  /* progress + controls */
+  .topbar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 40; background: transparent; }
+  .topbar .prog { height: 100%; background: var(--accent); width: 0; transition: width .35s ease; }
+  .chrome { position: fixed; z-index: 40; bottom: 22px; right: 26px; display: flex; align-items: center; gap: 16px;
+            font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .chrome .count { letter-spacing: .08em; }
+  .chrome button { font-family: var(--mono); font-size: 12px; background: var(--surface); color: var(--muted);
+            border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+  .chrome button:hover { color: var(--text); border-color: var(--accent); }
+  .chrome button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hint { position: fixed; bottom: 24px; left: 26px; z-index: 40; font-family: var(--mono);
+          font-size: 11px; color: var(--faint); letter-spacing: .05em; }
+
+  /* slides */
+  .deck { height: 100%; width: 100%; }
+  .slide {
+    position: fixed; inset: 0; display: none;
+    padding: clamp(28px, 7vh, 90px) clamp(24px, 8vw, 140px);
+    flex-direction: column; justify-content: center;
+    opacity: 0; transition: opacity .4s ease;
+  }
+  .slide.active { display: flex; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .slide, .topbar .prog { transition: none; } }
+  .wrap { width: 100%; max-width: 1040px; margin: 0 auto; }
+
+  .eyebrow { font-family: var(--mono); font-size: 12.5px; letter-spacing: .22em; text-transform: uppercase;
+             color: var(--accent); margin-bottom: 22px; }
+  .eyebrow.muted { color: var(--faint); }
+  h1 { font-size: clamp(34px, 6.2vw, 74px); font-weight: 760; letter-spacing: -0.035em; line-height: 1.02;
+       text-wrap: balance; }
+  h2 { font-size: clamp(28px, 4.6vw, 52px); font-weight: 720; letter-spacing: -0.03em; line-height: 1.05;
+       text-wrap: balance; margin-bottom: 26px; }
+  .lead { font-size: clamp(17px, 2vw, 22px); color: var(--muted); max-width: 60ch; text-wrap: pretty; }
+  .lead.big { font-size: clamp(20px, 2.6vw, 30px); color: var(--text); }
+  p.body { font-size: clamp(15px, 1.6vw, 18px); color: var(--muted); max-width: 62ch; margin-top: 14px; }
+  strong { color: var(--text); font-weight: 640; }
+  .accent { color: var(--accent); }
+
+  .kicker { font-family: var(--mono); color: var(--faint); font-size: 13px; letter-spacing: .04em; margin-top: 30px; }
+
+  /* title slide */
+  .title-mark { font-family: var(--mono); font-size: 13px; letter-spacing: .2em; color: var(--muted);
+                display: flex; gap: 10px; align-items: center; margin-bottom: 30px; }
+  .title-mark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 14px var(--accent); }
+  .title-eq { font-family: var(--mono); font-size: clamp(14px, 1.7vw, 19px); color: var(--muted);
+              margin-top: 34px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border);
+              border-radius: 10px; display: inline-block; }
+  .title-eq b { color: var(--accent); font-weight: 600; }
+  .title-eq .gate { color: var(--pass); }
+
+  /* reward track device */
+  .track-row { display: grid; grid-template-columns: 190px 1fr auto; align-items: center; gap: 18px; margin: 11px 0; }
+  .track-row .name { font-family: var(--mono); font-size: 14px; color: var(--text); }
+  .track-row .name small { display: block; color: var(--faint); font-size: 11.5px; letter-spacing: .02em; margin-top: 2px; }
+  .track { position: relative; height: 12px; background: var(--surface-2); border: 1px solid var(--border);
+           border-radius: 20px; overflow: hidden; }
+  .track .fill { position: absolute; inset: 0 auto 0 0; width: calc(var(--v) * 100%);
+                 background: linear-gradient(90deg, var(--accent-soft), var(--accent)); border-radius: 20px; }
+  .track .fill.dead { background: var(--reject); width: 3px; }
+  .val { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; min-width: 92px; text-align: right; }
+  .val.good { color: var(--accent); }
+  .val.dead { color: var(--reject); }
+
+  .pill { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; padding: 3px 8px; border-radius: 5px;
+          text-transform: uppercase; }
+  .pill.pass { color: var(--pass); background: color-mix(in srgb, var(--pass) 16%, transparent); }
+  .pill.reject { color: var(--reject); background: color-mix(in srgb, var(--reject) 16%, transparent); }
+
+  /* generic grid of cards */
+  .cards { display: grid; gap: 16px; margin-top: 8px; }
+  .cards.two { grid-template-columns: 1fr 1fr; }
+  .cards.three { grid-template-columns: repeat(3, 1fr); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+  .card h3 { font-size: 17px; font-weight: 660; letter-spacing: -0.01em; margin-bottom: 7px; }
+  .card p { font-size: 14.5px; color: var(--muted); }
+  .card .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+               color: var(--accent); display: block; margin-bottom: 10px; }
+
+  ul.clean { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+  ul.clean li { display: grid; grid-template-columns: 30px 1fr; gap: 14px; align-items: start;
+                font-size: clamp(15px,1.7vw,18px); color: var(--muted); }
+  ul.clean li b { color: var(--text); font-weight: 640; }
+  ul.clean .n { font-family: var(--mono); font-size: 13px; color: var(--accent); padding-top: 3px; }
+
+  code { font-family: var(--mono); background: var(--surface-2); border: 1px solid var(--border);
+         padding: 1px 6px; border-radius: 5px; font-size: 0.92em; }
+
+  .quote { font-size: clamp(20px, 2.8vw, 34px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.28;
+           text-wrap: balance; max-width: 22ch; }
+  .quote .accent { color: var(--accent); }
+
+  .split { display: grid; grid-template-columns: 1.1fr 1fr; gap: 44px; align-items: center; }
+  @media (max-width: 820px) {
+    .split, .cards.two, .cards.three { grid-template-columns: 1fr; }
+    .track-row { grid-template-columns: 130px 1fr auto; }
+    body { overflow-y: auto; }
+  }
+
+  .fab-example { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--reject);
+                 border-radius: 10px; padding: 22px 24px; font-family: var(--mono); font-size: 14.5px; margin-top: 8px; }
+  .fab-example .claim { color: var(--text); }
+  .fab-example .verdict { color: var(--reject); margin-top: 14px; }
+  .fab-example .truth { color: var(--muted); margin-top: 6px; }
+
+  .footer-note { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-top: 34px; letter-spacing: .03em; }
+</style>
+
+<div class="topbar"><div class="prog" id="prog"></div></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1. TITLE -->
+  <section class="slide active">
+    <div class="wrap">
+      <div class="title-mark"><span class="dot"></span> BIO-REWARDS &nbsp;/&nbsp; NVIDIA x OPENAI LIFE SCIENCES &nbsp;/&nbsp; LONDON 2026</div>
+      <h1>Verifiable rewards<br>for biology.</h1>
+      <p class="lead" style="margin-top:24px;">A deterministic verifier layer for probabilistic biology agents. The generator dreams. The reward function checks.</p>
+      <div class="title-eq">R(x) = <span class="gate">1[gates pass]</span> &middot; &Sigma; w<sub>i</sub> &middot; <b>&phi;<sub>i</sub></b>( g<sub>i</sub>(x) )</div>
+    </div>
+  </section>
+
+  <!-- 2. PROBLEM -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">The problem</div>
+      <h2>Hallucination is a feature, until it isn't.</h2>
+      <p class="lead big">An LLM inventing a hypothesis is being creative. An LLM inventing a melting temperature, a PAM site, or a citation is just wrong, with total confidence.</p>
+      <p class="body">Agentic biology workflows mix both jobs in one model. The probabilistic engine that makes discovery possible is the same engine that quietly fabricates the numbers a wet lab will spend real money and months on.</p>
+      <div class="kicker">// creativity and precision are different jobs. they should not share a failure mode.</div>
+    </div>
+  </section>
+
+  <!-- 3. PRECEDENT -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">Why this works</div>
+      <h2>Math and code got trustworthy because correctness got cheap to check.</h2>
+      <div class="split" style="margin-top:20px;">
+        <div>
+          <p class="lead">Reasoning models leapt forward on a simple loop: a proof verifier, a unit test, a compiler says right or wrong, and the model learns from it. The name is <strong>RLVR</strong>, reinforcement learning with verifiable rewards.</p>
+        </div>
+        <div>
+          <p class="body" style="margin-top:0;">Biology has almost none of these verifiers. So bio-agents drift, and no one can tell a grounded answer from a fluent one at scale.</p>
+          <p class="body"><strong class="accent">Build the missing verifiers, and biology gets the same flywheel.</strong></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. THE IDEA -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">The contract</div>
+      <h2>One reward skeleton. Any domain.</h2>
+      <div class="title-eq" style="font-size:clamp(16px,2.2vw,26px); margin-top:8px;">
+        R(x) = <span class="gate">1[ hard gates pass ]</span> &middot; &Sigma;<sub>i</sub> w<sub>i</sub> &middot; <b>&phi;<sub>i</sub></b>( g<sub>i</sub>(x) )
+      </div>
+      <ul class="clean" style="margin-top:30px;">
+        <li><span class="n">x</span><span><b>The candidate the agent proposes.</b> It only ever passes x. It never touches the scoring code. That sealed boundary is the safety story.</span></li>
+        <li><span class="n">g<sub>i</sub></span><span><b>A deterministic measurement.</b> A melting temperature, a docking energy, a metabolic flux, a conservation score.</span></li>
+        <li><span class="n">&phi;<sub>i</sub></span><span><b>A calibrated membership function.</b> Trapezoids that encode biological sweet spots: too little is bad and too much is bad.</span></li>
+        <li><span class="n">1[&nbsp;]</span><span><b>Hard gates.</b> Anything physically impossible scores exactly zero. No partial credit for chemistry that cannot exist.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5. FIVE PROPERTIES -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">What makes a reward trustworthy</div>
+      <h2>Five properties, non-negotiable.</h2>
+      <div class="cards three">
+        <div class="card"><span class="tag">01 / determinism</span><p>Decimal arithmetic, fixed rounding, hashed config. Same input, same bytes, on every machine. Results cache and reproduce.</p></div>
+        <div class="card"><span class="tag">02 / calibration</span><p>Membership anchors come from a reference panel of known positives and negatives, set before any novel candidate is scored.</p></div>
+        <div class="card"><span class="tag">03 / hard gates</span><p>Validity is not a soft penalty. Impossible is zero, kept separate from the graded quality score.</p></div>
+        <div class="card"><span class="tag">04 / applicability</span><p>Every result says whether the candidate is inside the verifier's competence. A reward that extrapolates silently is worse than none.</p></div>
+        <div class="card"><span class="tag">05 / goodhart-resistant</span><p>Multiple objectives, hard gates, and adversarial negative controls make the metric expensive to game.</p></div>
+        <div class="card" style="border-color:var(--accent); background:var(--accent-soft);"><span class="tag">the origin lesson</span><p style="color:var(--text);">A docking reward once scored a drug-resistant enzyme identically to wild type. It was blind and did not say so. Property 04 exists because of that.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. FOUR VERIFIERS -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">Shipped, tested, offline</div>
+      <h2>Four verifiers. Same contract.</h2>
+      <p class="body" style="margin-top:0; margin-bottom:26px;">Each catches the exact class of confident error an LLM makes in its domain. Good candidate versus caught candidate, real numbers.</p>
+
+      <div class="track-row">
+        <div class="name">protocol<small>PCR primer pair</small></div>
+        <div class="track"><div class="fill" style="--v:0.935"></div></div>
+        <div class="val good">0.935 <span class="pill pass">ok</span></div>
+      </div>
+      <div class="track-row">
+        <div class="name" style="visibility:hidden;">.</div>
+        <div class="track"><div class="fill dead"></div></div>
+        <div class="val dead">0.000 <span class="pill reject">rejected</span></div>
+      </div>
+
+      <div class="track-row">
+        <div class="name">binder<small>peptide design</small></div>
+        <div class="track"><div class="fill" style="--v:0.698"></div></div>
+        <div class="val good">0.698 <span class="pill pass">ok</span></div>
+      </div>
+      <div class="track-row">
+        <div class="name" style="visibility:hidden;">.</div>
+        <div class="track"><div class="fill" style="--v:0.294"></div></div>
+        <div class="val" style="color:var(--muted)">0.294</div>
+      </div>
+
+      <div class="track-row">
+        <div class="name">metabolic<small>knockout / FBA</small></div>
+        <div class="track"><div class="fill" style="--v:1.0"></div></div>
+        <div class="val good">1.000 <span class="pill pass">ok</span></div>
+      </div>
+      <div class="track-row">
+        <div class="name" style="visibility:hidden;">.</div>
+        <div class="track"><div class="fill dead"></div></div>
+        <div class="val dead">0.000 <span class="pill reject">lethal</span></div>
+      </div>
+
+      <div class="track-row">
+        <div class="name">citation<small>claim grounding</small></div>
+        <div class="track"><div class="fill" style="--v:0.886"></div></div>
+        <div class="val good">0.886 <span class="pill pass">ok</span></div>
+      </div>
+      <div class="track-row">
+        <div class="name" style="visibility:hidden;">.</div>
+        <div class="track"><div class="fill dead"></div></div>
+        <div class="val dead">0.000 <span class="pill reject">fabrication</span></div>
+      </div>
+
+      <div class="footer-note">43 tests green. no GPU, no network, no paywall at the venue.</div>
+    </div>
+  </section>
+
+  <!-- 7. MONEY SHOT -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">The one to say out loud</div>
+      <h2>An agent cites a structure. The layer refuses it.</h2>
+      <div class="fab-example">
+        <div class="claim">agent: "PDB 5EHF is the VEGFR2 complex, bound at 3.37 nM."</div>
+        <div class="verdict">REJECTED &nbsp; reward = 0.000</div>
+        <div class="truth">// entity provenance contradicted: PDB 5EHF is 'laccase', claimed 'VEGFR2'</div>
+      </div>
+      <p class="body">The number was plausible. The wording was fluent. The provenance was fiction, and 5EHF is a completely different enzyme. A deterministic entity check caught it where a reader would have nodded along. This is anti-hallucination discipline turned into a gradient any agent can be trained against.</p>
+    </div>
+  </section>
+
+  <!-- 8. ARCHITECTURE -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">How it stays honest and portable</div>
+      <h2>Sealed boundary. Mock-backed providers.</h2>
+      <div class="cards two" style="margin-top:8px;">
+        <div class="card">
+          <span class="tag">the sealed boundary</span>
+          <h3>The agent proposes. It cannot score.</h3>
+          <p>The candidate crosses one wall as data. The reward logic and its hashed config live on the other side. A probabilistic generator can never quietly edit its own grader.</p>
+        </div>
+        <div class="card">
+          <span class="tag">the provider pattern</span>
+          <h3>Every expensive step has a mock.</h3>
+          <p>Docking, folding, an FBA solve, a DOI lookup, each is an injected provider with an offline stand-in. The reward logic stays pure and testable, and every demo runs with no GPU and no network.</p>
+        </div>
+      </div>
+      <p class="body">Real providers plug straight in: ESMFold or Boltz for binder confidence, the cobrapy textbook model for metabolic flux, live Crossref and RCSB for citations.</p>
+    </div>
+  </section>
+
+  <!-- 9. THE LOOP -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">Generator plus verifier</div>
+      <h2>Watch the reward climb.</h2>
+      <p class="lead">A candidate is proposed, scored, mutated, scored again. The deterministic reward is the fitness signal. This is RLVR, running live on a primer pair.</p>
+      <div class="cards two" style="margin-top:26px;">
+        <div class="card" style="border-left:3px solid var(--reject);">
+          <span class="tag" style="color:var(--reject);">seed &middot; iteration 0</span>
+          <div class="val dead" style="font-size:30px; text-align:left; min-width:0;">0.167</div>
+          <p>Tm 68.0 C and 45.5 C, a 22.6 C mismatch between the two strands.</p>
+        </div>
+        <div class="card" style="border-left:3px solid var(--accent);">
+          <span class="tag">converged &middot; iteration 60</span>
+          <div class="val good" style="font-size:30px; text-align:left; min-width:0;">1.000</div>
+          <p>Tm 61.3 C and 61.5 C, both inside the 58 to 62 C window, matched to 0.2 C.</p>
+        </div>
+      </div>
+      <div class="footer-note">the climb is scientifically real. Tm is exact nearest-neighbor thermodynamics, not a cosmetic curve.</div>
+    </div>
+  </section>
+
+  <!-- 10. WHY IT COMPOUNDS -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow">The bet</div>
+      <h2>Verifiers are the scarce resource, not models.</h2>
+      <p class="lead big">Every new deterministic reward function is another domain where a bio-agent can be trained, graded, and trusted. The library compounds. The models are already here.</p>
+      <p class="body">Primers today. Guides, assays, folding, flux, dosing schedules, immunogenicity, variant effects tomorrow. Each one is a small, checkable contract against physical reality.</p>
+    </div>
+  </section>
+
+  <!-- 11. CLOSE / RECRUIT -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow muted">Come build one this weekend</div>
+      <h1 style="font-size:clamp(30px,5vw,60px);">Pick a domain.<br>Write the verifier.</h1>
+      <p class="lead" style="margin-top:22px;">The contract is one class. A new verifier is a subclass with hard gates, calibrated components, and an honest applicability note. Clone it, claim a domain, and add a reward the whole field can train against.</p>
+      <div class="title-eq" style="margin-top:30px;">github.com/rrolli93/bio-rewards &nbsp; &middot; &nbsp; <b>uv run python demo.py</b></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="hint">&larr; &rarr; or space to navigate</div>
+<div class="chrome">
+  <button id="theme" aria-label="Toggle theme">theme</button>
+  <span class="count" id="count">01 / 11</span>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const prog = document.getElementById('prog');
+  const count = document.getElementById('count');
+  let i = 0;
+  const pad = n => String(n).padStart(2, '0');
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    prog.style.width = ((i) / (slides.length - 1) * 100) + '%';
+    count.textContent = pad(i + 1) + ' / ' + pad(slides.length);
+  }
+  function next() { show(i + 1); }
+  function prev() { show(i - 1); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+  });
+  document.getElementById('deck').addEventListener('click', e => {
+    if (e.target.closest('a,button')) return;
+    const x = e.clientX / window.innerWidth;
+    x < 0.28 ? prev() : next();
+  });
+
+  // theme toggle: cycle through system -> dark -> light
+  const root = document.documentElement;
+  const tb = document.getElementById('theme');
+  tb.addEventListener('click', e => {
+    e.stopPropagation();
+    const cur = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
+
+  show(0);
+</script>
