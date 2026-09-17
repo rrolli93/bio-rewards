@@ -142,19 +142,25 @@ class BinderReward(RewardFunction):
         # Interface terms only exist for a co-folded complex.
         if fold["n_target"] > 0 and fold["iptm"] is not None:
             iptm = fold["iptm"]
-            m = compute_interface_metrics(fold["pae"], fold["n_binder"], fold["n_target"])
-            ipsae = m["ipsae"]
-            pae = m["pae_interaction"]
-            components += [
+            components.append(
                 Component("iptm", round(iptm, 3), anchored(iptm, 0.85, 0.30), Decimal("0.10"),
-                          f"{iptm:.2f}"),
-                # ipSAE: our implementation of the Dunbar-Sternberg interface pTM
-                Component("ipsae", round(ipsae, 3), anchored(ipsae, 0.80, 0.20), Decimal("0.15"),
-                          f"{ipsae:.2f}"),
-                # interface PAE: the bold-generative-engine binder filter (real gate <10)
-                Component("pae_interaction", round(pae, 2), anchored(pae, 5, 25), Decimal("0.10"),
-                          f"{pae:.1f} A"),
-            ]
+                          f"{iptm:.2f}"))
+            # ipSAE and pae_interaction need the PAE matrix. Some folders (e.g.
+            # LiteFold) return ipTM and pLDDT but not PAE; then we honestly score
+            # ipTM alone and skip the two PAE-derived terms.
+            pae_matrix = fold.get("pae")
+            if pae_matrix is not None:
+                m = compute_interface_metrics(pae_matrix, fold["n_binder"], fold["n_target"])
+                ipsae = m["ipsae"]
+                pae = m["pae_interaction"]
+                components += [
+                    # ipSAE: our implementation of the Dunbar-Sternberg interface pTM
+                    Component("ipsae", round(ipsae, 3), anchored(ipsae, 0.80, 0.20),
+                              Decimal("0.15"), f"{ipsae:.2f}"),
+                    # interface PAE: the bold-generative-engine binder filter (gate <10)
+                    Component("pae_interaction", round(pae, 2), anchored(pae, 5, 25),
+                              Decimal("0.10"), f"{pae:.1f} A"),
+                ]
 
         return components
 

@@ -28,7 +28,9 @@ class FoldProvider(Protocol):
       * plddt      mean pLDDT over the binder chain, [0, 100], higher better
       * iptm       interface pTM, [0, 1], higher better; None when target is None
       * pae        (N x N) nested list, N = n_binder + n_target, ordered
-                   [binder residues, then target residues]
+                   [binder residues, then target residues]; may be None if the
+                   folder does not expose a PAE matrix (then ipSAE and
+                   pae_interaction are skipped and only ipTM + pLDDT are scored)
       * n_binder   int
       * n_target   int (0 when target is None)
     """
@@ -213,3 +215,115 @@ class BoltzApiFoldProvider:
 
 # Back-compat alias.
 BoltzFoldProvider = BoltzApiFoldProvider
+
+
+def _load_env_key(name: str) -> str | None:
+    """Read a key from the environment, falling back to ~/.config/peptai/.env."""
+    import os
+
+    if os.environ.get(name):
+        return os.environ[name]
+    path = os.path.expanduser("~/.config/peptai/.env")
+    if os.path.exists(path):
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(f"{name}="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
+class LiteFoldFoldProvider:
+    """Co-folding via the hosted LiteFold agents API (Boltz-2).
+
+    LiteFold returns ipTM and complex pLDDT but NOT a PAE matrix, so this provider
+    sets pae=None and the reward scores ipTM + pLDDT only (ipSAE and
+    pae_interaction are skipped). That is the honest tradeoff of this folder versus
+    boltz-api, which does expose the PAE. Use whichever the task needs, or both.
+
+    Flow: init project, upload a 2-record FASTA (binder chain A, target chain B),
+    submit Boltz-2, poll, read confidence_json. Each fold caches its parsed result.
+    Needs LITEFOLD_API_KEY (read from env or ~/.config/peptai/.env).
+    """
+
+    name = "litefold_fold"
+    BASE = "https://agentsapi.litefold.ai"
+
+    def __init__(self, api_key=None, base_url=None, cache_dir=None,
+                 poll_interval=10.0, timeout=2400):
+        import os
+        self.api_key = api_key or _load_env_key("LITEFOLD_API_KEY")
+        self.base = (base_url or _load_env_key("LITEFOLD_BASE_URL") or self.BASE).rstrip("/")
+        self.poll_interval = poll_interval
+        self.timeout = timeout
+        self.cache_dir = cache_dir or os.path.expanduser("~/.cache/biorewards/litefold")
+
+    def _key(self, binder: str, target: str) -> str:
+        return hashlib.sha256(f"{binder}|{target}".encode()).hexdigest()[:16]
+
+    def _headers(self):
+        if not self.api_key:
+            raise RuntimeError(
+                "LiteFoldFoldProvider needs LITEFOLD_API_KEY (env or ~/.config/peptai/.env)."
+            )
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def fold(self, binder: str, target: str | None) -> dict:
+        import json
+        import os
+        import time
+
+        try:
+            import requests
+        except ImportError as exc:
+            raise ImportError("LiteFoldFoldProvider needs 'requests'.") from exc
+
+        binder = binder.upper()
+        tgt = (target or "").upper()
+        key = self._key(binder, tgt)
+        os.makedirs(self.cache_dir, exist_ok=True)
+        cache = os.path.join(self.cache_dir, f"{key}.json")
+        if os.path.exists(cache):
+            with open(cache) as f:
+                return json.load(f)
+
+        job = f"biorewards-{key}"
+        fasta = ">A\n" + binder + ("\n>B\n" + tgt if tgt else "") + "\n"
+        h = self._headers()
+
+        requests.post(f"{self.base}/jobs/init", json={"job_name": job},
+                      headers=h, timeout=60)
+        requests.post(f"{self.base}/fs/upload", headers=h, timeout=120,
+                      files={"file": ("seqs.fasta", fasta)}, data={"path": job})
+        requests.post(f"{self.base}/structure/submit", headers=h, timeout=120,
+                      json={"job_name": job, "file_names": ["seqs.fasta"]})
+
+        # poll until every file is done
+        deadline = time.time() + self.timeout
+        while time.time() < deadline:
+            st = requests.get(f"{self.base}/structure/jobs/{job}/status",
+                              headers=h, timeout=60).json()
+            total = st.get("total_files", 0)
+            if total and (st.get("completed", 0) + st.get("failed", 0)) >= total:
+                break
+            time.sleep(self.poll_interval)
+
+        res = requests.get(
+            f"{self.base}/structure/jobs/{job}/files/seqs.fasta/result",
+            headers=h, timeout=120).json()
+        conf = res.get("confidence_json") or {}
+        metrics = res.get("metrics") or {}
+        plddt_unit = conf.get("complex_plddt")
+        plddt = round(float(plddt_unit) * 100.0, 2) if plddt_unit is not None \
+            else round(float(metrics.get("mean_plddt", 0.0)), 2)
+
+        out = {
+            "plddt": plddt,
+            "iptm": round(float(conf["iptm"]), 4) if tgt and conf.get("iptm") is not None else None,
+            "pae": None,  # LiteFold does not expose the PAE matrix
+            "n_binder": len(binder),
+            "n_target": len(tgt),
+        }
+        with open(cache, "w") as f:
+            json.dump(out, f)
+        return out
