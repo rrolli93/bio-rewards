@@ -133,16 +133,12 @@ class BoltzApiFoldProvider:
         return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
     def _input(self, binder: str, target: str) -> dict:
-        entities = [{
-            "chain_ids": ["A"], "modifications": [],
-            "msa": {"type": self.msa}, "type": "protein", "value": binder,
-        }]
+        # The compute API generates MSAs server-side and rejects per-entity msa or
+        # modifications properties, so entities are bare (chain, type, sequence).
+        entities = [{"chain_ids": ["A"], "type": "protein", "value": binder}]
         spec = {"entities": entities, "num_samples": self.num_samples}
         if target:
-            entities.append({
-                "chain_ids": ["B"], "modifications": [],
-                "msa": {"type": self.msa}, "type": "protein", "value": target,
-            })
+            entities.append({"chain_ids": ["B"], "type": "protein", "value": target})
             spec["binding"] = {"binder_chain_ids": ["A"], "type": "protein_protein_binding"}
         return spec
 

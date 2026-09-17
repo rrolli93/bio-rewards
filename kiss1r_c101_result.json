@@ -1,0 +1,85 @@
+{
+  "status": "ok",
+  "reward": "0.858471",
+  "components": [
+    {
+      "name": "gravy",
+      "raw": -0.55,
+      "score": "1",
+      "weight": "0.15",
+      "detail": "-0.55"
+    },
+    {
+      "name": "net_charge",
+      "raw": 0.97,
+      "score": "1",
+      "weight": "0.10",
+      "detail": "+1.0 at pH7.4"
+    },
+    {
+      "name": "aromatic_fraction",
+      "raw": 0.4,
+      "score": "0",
+      "weight": "0.05",
+      "detail": "40%"
+    },
+    {
+      "name": "cysteine_parity",
+      "raw": 0,
+      "score": "1.0",
+      "weight": "0.10",
+      "detail": "0 Cys (even)"
+    },
+    {
+      "name": "kex2_sites",
+      "raw": 0,
+      "score": "1",
+      "weight": "0.10",
+      "detail": "0 dibasic"
+    },
+    {
+      "name": "hydrophobic_patch",
+      "raw": 1,
+      "score": "1",
+      "weight": "0.10",
+      "detail": "longest run=1"
+    },
+    {
+      "name": "plddt",
+      "raw": 71.91,
+      "score": "0.54775",
+      "weight": "0.10",
+      "detail": "72"
+    },
+    {
+      "name": "iptm",
+      "raw": 0.912,
+      "score": "1",
+      "weight": "0.10",
+      "detail": "0.91"
+    },
+    {
+      "name": "ipsae",
+      "raw": 0.643,
+      "score": "0.7384026940375638333333333333",
+      "weight": "0.15",
+      "detail": "0.64"
+    },
+    {
+      "name": "pae_interaction",
+      "raw": 7.83,
+      "score": "0.8585928096423796",
+      "weight": "0.10",
+      "detail": "7.8 A"
+    }
+  ],
+  "hard_gate_failures": [],
+  "applicability": {
+    "in_domain": true,
+    "reason": "Developability terms (GRAVY, net charge, aromatic fraction, cysteine parity, Kex2 sites, hydrophobic patch) are exact from the sequence. pLDDT and the interface-confidence terms (ipTM, ipSAE, pae_interaction) come from co-folding the complex via provider 'boltz_api_fold'. ipSAE and pae_interaction are computed by us from the PAE matrix, so the folder is swappable (Boltz-2, AF2, Chai)."
+  },
+  "evaluation_key": "5ce512fad9a6dcee8e0b03f4c313e4251d760473619e81e60df983799c0caabf",
+  "details": {
+    "total_weight": "1.05"
+  }
+}
